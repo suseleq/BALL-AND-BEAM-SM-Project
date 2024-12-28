@@ -1,0 +1,2 @@
+../Core/Src/hc_sr04.c:13:6:hc_sr04_init	1
+../Core/Src/hc_sr04.c:23:7:hc_sr04_convert_us_to_cm	1
