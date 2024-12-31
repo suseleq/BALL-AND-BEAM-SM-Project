@@ -29,6 +29,7 @@
 #include "string.h"
 #include "stdio.h"
 #include "servo.h"
+#include "pid_controller.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,6 +52,16 @@
 /* USER CODE BEGIN PV */
 struct us_sensor_str distance_sensor;
 volatile int d = 0;
+pid_str pid;
+float kp = 10;
+float ki = 0.0f;
+float kd = 0.5f;
+float fs = 100;
+float anti_windup_limit = 30.0f;
+float y_ref = 15.0f;
+float previous_distance = 5.0f;
+int counter = 0;
+float mean_distance = 0.0f;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -63,18 +74,30 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
-	if(TIM1 == htim->Instance)
+	if(TIM4 == htim->Instance)
 	{
 		uint32_t echo_us;
 
 		echo_us = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
 		distance_sensor.distance_cm = hc_sr04_convert_us_to_cm(echo_us);
+		if (distance_sensor.distance_cm > 40 || distance_sensor.distance_cm < 4){
+			distance_sensor.distance_cm = previous_distance;
+		}
+		previous_distance = distance_sensor.distance_cm;
+
+
 		d = distance_sensor.distance_cm * 10;
 
 
 		uint8_t tx_buffer[32];
 		int tx_msg_len = sprintf((char*)tx_buffer, "%03u.%01u\r", d / 10, d % 10);
 		HAL_UART_Transmit(&huart3, tx_buffer, tx_msg_len, 100);
+		int u = pid_calculate(&pid, y_ref, distance_sensor.distance_cm);
+		servo_set_angle(u);
+
+
+
+
 	}
 }
 /* USER CODE END 0 */
@@ -112,20 +135,18 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-  hc_sr04_init(&distance_sensor, &htim1, &htim2, TIM_CHANNEL_3);
+  hc_sr04_init(&distance_sensor, &htim4, &htim2, TIM_CHANNEL_4);
   servo_init(&htim3, TIM_CHANNEL_3);
-
+  pid_init(&pid, kp, ki, kd, fs, anti_windup_limit);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  servo_set_angle(90);
-	  HAL_Delay(2000);
-	  servo_set_angle(-90);
-	  	  HAL_Delay(2000);
+	 // servo_set_angle(0);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

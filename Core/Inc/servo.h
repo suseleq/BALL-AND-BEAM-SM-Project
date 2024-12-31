@@ -10,7 +10,7 @@
 
 #define SERVO_MAX_US		2500
 #define SERVO_MIN_US		500
-#define SERVO_NEUTRAL		100
+#define SERVO_NEUTRAL		1500
 
 #define SERVO_MAX_ANGLE		90
 #define SERVO_MIN_ANGLE		-90
