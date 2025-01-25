@@ -5,6 +5,7 @@
  *      Author: Kuba
  */
 #include "pid_controller.h"
+#include "math.h"
 
 void pid_init(pid_str *pid_data, float kp_init, float ki_init, float kd_init, float fs_init, float anti_windup_limit_init) {
     pid_data->prev_error = 0.0f;
@@ -22,13 +23,12 @@ void pid_init(pid_str *pid_data, float kp_init, float ki_init, float kd_init, fl
 
 int pid_calculate(pid_str *pid_data, float y_ref, float y) {
     float error = y_ref - y;
-
-    if(error < 0.002f && error > -0.002f){
-    	error = 0;
-    }
+    //if(fabs(error) < 0.4){
+    	//error = 0;
+    //}
 
     float p = pid_data->Kp * error;
-    float i = pid_data->Ki * pid_data->total_error;
+    float i = pid_data->Ki * pid_data->total_error / pid_data->fs;
     float d = pid_data->Kd * (error - pid_data->prev_error);
 
     int u = p + i + d;
@@ -39,7 +39,7 @@ int pid_calculate(pid_str *pid_data, float y_ref, float y) {
     } else if (u < pid_data->min_u) {
         u = pid_data->min_u;
     } else {
-        pid_data->total_error += error / pid_data->fs;
+        pid_data->total_error += error;
 
         // Antiwindup
         if (pid_data->total_error > pid_data->anti_windup_limit) {

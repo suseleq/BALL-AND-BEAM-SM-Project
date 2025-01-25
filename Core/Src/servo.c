@@ -22,7 +22,6 @@ void servo_init(TIM_HandleTypeDef *tim, uint32_t channel)
 
 void servo_set_angle(int angle)
 {
-	angle += 5;
     if(angle < SERVO_MIN_ANGLE)
         angle = SERVO_MIN_ANGLE;
     else if(angle > SERVO_MAX_ANGLE)

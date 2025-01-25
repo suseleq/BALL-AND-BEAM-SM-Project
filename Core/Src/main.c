@@ -25,11 +25,12 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "hc_sr04.h"
-#include "stdlib.h"
+#include <stdlib.h>
 #include "string.h"
 #include "stdio.h"
 #include "servo.h"
 #include "pid_controller.h"
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,15 +54,17 @@
 struct us_sensor_str distance_sensor;
 volatile int d = 0;
 pid_str pid;
-float kp = 10;
-float ki = 0.0f;
-float kd = 0.5f;
-float fs = 100;
-float anti_windup_limit = 30.0f;
-float y_ref = 15.0f;
+float kp = 5.2f;
+float ki = 2.0f;
+float kd = 12.0f;
+float fs = 16;
+float anti_windup_limit = 10.0f;
+float y_ref = 20.0f;
 float previous_distance = 5.0f;
 int counter = 0;
 float mean_distance = 0.0f;
+
+uint8_t tx_buffer[4];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -72,34 +75,73 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void read_distance(TIM_HandleTypeDef *htim){
+	uint32_t echo_us;
+
+	echo_us = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
+	distance_sensor.distance_cm = hc_sr04_convert_us_to_cm(echo_us);
+	if (distance_sensor.distance_cm > 40 || distance_sensor.distance_cm < 4){
+		distance_sensor.distance_cm = previous_distance;
+			}
+	previous_distance = distance_sensor.distance_cm;
+}
+
+void generate_control(){
+	int u = pid_calculate(&pid, y_ref, distance_sensor.distance_cm);
+	servo_set_angle(u);
+}
+
+
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
 	if(TIM4 == htim->Instance)
 	{
-		uint32_t echo_us;
-
-		echo_us = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
-		distance_sensor.distance_cm = hc_sr04_convert_us_to_cm(echo_us);
-		if (distance_sensor.distance_cm > 40 || distance_sensor.distance_cm < 4){
-			distance_sensor.distance_cm = previous_distance;
-		}
-		previous_distance = distance_sensor.distance_cm;
-
+		read_distance(htim);
+		generate_control();
 
 		d = distance_sensor.distance_cm * 10;
 
 
 		uint8_t tx_buffer[32];
-		int tx_msg_len = sprintf((char*)tx_buffer, "%03u.%01u\r", d / 10, d % 10);
+		int tx_msg_len = sprintf((char*)tx_buffer, "%02u.%01u\r", d / 10, d % 10);
 		HAL_UART_Transmit(&huart3, tx_buffer, tx_msg_len, 100);
-		int u = pid_calculate(&pid, y_ref, distance_sensor.distance_cm);
-		servo_set_angle(u);
-
-
-
 
 	}
 }
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if(huart == &huart3)
+      {
+
+    	int value = strtol((char *)&tx_buffer[2], NULL, 10);
+
+    	if (strncmp((char *)tx_buffer, "kp", 2) == 0){
+    		kp = value;
+    	}
+    	if (strncmp((char *)tx_buffer, "ki", 2) == 0){
+    	    		ki = value;
+    	    	}
+    	if (strncmp((char *)tx_buffer, "kd", 2) == 0){
+    	    		kd = value;
+    	    	}
+    	if (strncmp((char *)tx_buffer, "yr", 2) == 0){
+    		if (value > 5 && value < 25)
+    	    		y_ref = value;
+    	    	}
+
+
+
+    }
+    HAL_UART_Receive_IT(&huart3, tx_buffer, 4);
+
+
+
+}
+
+
+
 /* USER CODE END 0 */
 
 /**
@@ -138,15 +180,22 @@ int main(void)
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   hc_sr04_init(&distance_sensor, &htim4, &htim2, TIM_CHANNEL_4);
-  servo_init(&htim3, TIM_CHANNEL_3);
+  servo_init(&htim1, TIM_CHANNEL_1);
   pid_init(&pid, kp, ki, kd, fs, anti_windup_limit);
+  int a = -90;
   /* USER CODE END 2 */
+
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	 // servo_set_angle(0);
+	//servo_set_angle(a);
+	//HAL_Delay(20);
+	//a += 1;
+	//if(a == 90){
+		//	a = -90;
+	//}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

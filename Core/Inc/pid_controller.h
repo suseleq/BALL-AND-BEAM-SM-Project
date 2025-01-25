@@ -19,6 +19,7 @@ typedef struct
 	int min_u;
 	float fs;
 	float anti_windup_limit;
+	float prev_u;
 }pid_str;
 
 void pid_init(pid_str *pid_data, float kp_init, float ki_init, float kd_init, float fs_init, float anti_windup_limit_init);
